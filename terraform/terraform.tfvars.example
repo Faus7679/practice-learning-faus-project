@@ -1,0 +1,29 @@
+# Terraform configuration values
+# Copy this file to terraform.tfvars and update with your values
+
+# AWS Configuration
+aws_region = "us-east-1"
+environment = "dev"
+
+# Project Configuration
+project_name = "practice-learning-faus-project"
+owner = "Faus7679"
+
+# GitHub Configuration
+github_owner = "Faus7679"
+github_repo = "practice-learning-faus-project"
+# github_token = "your_github_personal_access_token_here"
+
+# Jenkins Server Configuration
+enable_jenkins_server = true
+jenkins_instance_type = "t3.medium"
+
+# Security Configuration
+# allowed_cidr_blocks = ["YOUR_IP/32"]  # Replace with your IP for better security
+allowed_cidr_blocks = ["0.0.0.0/0"]  # WARNING: This allows access from anywhere
+
+# AWS Key Pair (optional, for SSH access)
+# key_pair_name = "your-aws-key-pair-name"
+
+# GitHub Integration
+enable_github_webhooks = true

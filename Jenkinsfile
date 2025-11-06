@@ -22,7 +22,7 @@ pipeline {
         booleanParam(
             name: 'DEPLOY_INFRASTRUCTURE',
             defaultValue: true,
-            description: 'Deploy CloudFormation infrastructure'
+            description: 'Deploy Terraform template and CloudFormation infrastructure'
         )
     }
     
@@ -60,10 +60,10 @@ pipeline {
                 not { params.SKIP_TESTS }
             }
             steps {
-                echo 'Validating CloudFormation templates...'
+                echo 'Validating Terraform template CloudFormation templates...'
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
                     sh '''
-                        # Validate CloudFormation templates
+                        # Validate Terraform template CloudFormation templates
                         for template in resources/*.yaml; do
                             if [ -f "$template" ]; then
                                 echo "Validating $template..."
@@ -76,6 +76,7 @@ pipeline {
                             if [ -f "$json_file" ]; then
                                 echo "Validating JSON syntax for $json_file..."
                                 python -m json.tool "$json_file" > /dev/null
+                                javascript -m json.tool "$json_file" > /dev/null
                             fi
                         done
                     '''
@@ -85,7 +86,7 @@ pipeline {
         
         stage('Package Templates') {
             steps {
-                echo 'Packaging CloudFormation templates...'
+                echo 'Packaging Terraform template and CloudFormation templates...'
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
                     sh '''
                         # Create deployment bucket if it doesn't exist

@@ -22,7 +22,7 @@ pipeline {
         booleanParam(
             name: 'DEPLOY_INFRASTRUCTURE',
             defaultValue: true,
-            description: 'Deploy Terraform template and CloudFormation infrastructure'
+            description: 'Deploy Terraform templates and CloudFormation infrastructure'
         )
     }
     
@@ -60,23 +60,63 @@ pipeline {
                 not { params.SKIP_TESTS }
             }
             steps {
-                echo 'Validating Terraform template CloudFormation templates...'
+                echo 'Validating Terraform templates and CloudFormation templates...'
+                
+                // Install Node.js if not available
+                sh '''
+                    # Install Node.js if not available
+                    if ! command -v node &> /dev/null; then
+                        echo "Installing Node.js..."
+                        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+                        sudo apt-get install -y nodejs
+                    else
+                        echo "Node.js is already installed: $(node --version)"
+                    fi
+                '''
+                
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
                     sh '''
-                        # Validate Terraform template CloudFormation templates
+                        # Validate Terraform templates and CloudFormation templates
                         for template in resources/*.yaml; do
                             if [ -f "$template" ]; then
-                                echo "Validating $template..."
+                                echo "Validating CloudFormation template: $template..."
                                 aws cloudformation validate-template --template-body file://$template
                             fi
                         done
                         
-                        # Validate JSON files
+                        # Validate Terraform files
+                        if [ -d "terraform" ]; then
+                            echo "Validating Terraform templates..."
+                            cd terraform
+                            terraform fmt -check
+                            terraform init -backend=false
+                            terraform validate
+                            cd ..
+                        fi
+                        
+                        # Validate JSON files using Python
                         for json_file in *.json; do
                             if [ -f "$json_file" ]; then
-                                echo "Validating JSON syntax for $json_file..."
+                                echo "Validating JSON syntax for $json_file using Python..."
                                 python -m json.tool "$json_file" > /dev/null
-                                javascript -m json.tool "$json_file" > /dev/null
+                            fi
+                        done
+                        
+                        # Validate JSON files using JavaScript/Node.js
+                        for json_file in *.json; do
+                            if [ -f "$json_file" ]; then
+                                echo "Validating JSON syntax for $json_file using JavaScript..."
+                                node -e "
+                                    const fs = require('fs');
+                                    try {
+                                        const data = fs.readFileSync('$json_file', 'utf8');
+                                        JSON.parse(data);
+                                        console.log('✓ Valid JSON: $json_file');
+                                    } catch (error) {
+                                        console.error('✗ Invalid JSON: $json_file - ' + error.message);
+                                        process.exit(1);
+                                    }
+                                "
                             fi
                         done
                     '''
@@ -86,7 +126,7 @@ pipeline {
         
         stage('Package Templates') {
             steps {
-                echo 'Packaging Terraform template and CloudFormation templates...'
+                echo 'Packaging Terraform templates and CloudFormation templates...'
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
                     sh '''
                         # Create deployment bucket if it doesn't exist
@@ -101,8 +141,17 @@ pipeline {
                                 --output-template-file packaged-template.yaml
                         fi
                         
+                        # Package Terraform templates
+                        if [ -d "terraform" ]; then
+                            echo "Packaging Terraform templates..."
+                            tar -czf terraform-templates-${BUILD_TIMESTAMP}.tar.gz terraform/
+                            aws s3 cp terraform-templates-${BUILD_TIMESTAMP}.tar.gz s3://${DEPLOYMENT_BUCKET}/${BUILD_TIMESTAMP}/
+                        fi
+                        
                         # Upload other artifacts
-                        aws s3 cp iam-role-and-policies.json s3://${DEPLOYMENT_BUCKET}/${BUILD_TIMESTAMP}/
+                        if [ -f "iam-role-and-policies.json" ]; then
+                            aws s3 cp iam-role-and-policies.json s3://${DEPLOYMENT_BUCKET}/${BUILD_TIMESTAMP}/
+                        fi
                     '''
                 }
             }
@@ -190,6 +239,7 @@ pipeline {
                 echo 'Cleaning up temporary files...'
                 sh '''
                     rm -f packaged-template.yaml
+                    rm -f terraform-templates-*.tar.gz
                     echo "Cleanup completed"
                 '''
             }
@@ -200,7 +250,7 @@ pipeline {
         always {
             echo 'Pipeline execution completed.'
             // Archive build artifacts
-            archiveArtifacts artifacts: 'resources/*.yaml, *.json', fingerprint: true, allowEmptyArchive: true
+            archiveArtifacts artifacts: 'resources/*.yaml, *.json, terraform/*.tf, terraform/*.tfvars', fingerprint: true, allowEmptyArchive: true
         }
         success {
             echo 'Pipeline completed successfully!'

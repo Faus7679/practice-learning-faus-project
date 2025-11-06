@@ -163,7 +163,7 @@ pipeline {
                         echo "Stack Status: $STACK_STATUS"
                         
                         if [[ "$STACK_STATUS" == "CREATE_COMPLETE" || "$STACK_STATUS" == "UPDATE_COMPLETE" ]]; then
-                            echo "✅ Stack deployment successful!"
+                            echo "Stack deployment successful!"
                             
                             # Test S3 bucket if created
                             BUCKET_NAME=$(aws cloudformation describe-stacks \
@@ -176,7 +176,7 @@ pipeline {
                                 aws s3 ls s3://$BUCKET_NAME || echo "Bucket not accessible yet"
                             fi
                         else
-                            echo "❌ Stack deployment failed with status: $STACK_STATUS"
+                            echo "Stack deployment failed with status: $STACK_STATUS"
                             exit 1
                         fi
                     '''
@@ -202,7 +202,7 @@ pipeline {
             archiveArtifacts artifacts: 'resources/*.yaml, *.json', fingerprint: true, allowEmptyArchive: true
         }
         success {
-            echo '✅ Pipeline completed successfully!'
+            echo 'Pipeline completed successfully!'
             script {
                 if (params.ENVIRONMENT == 'prod') {
                     // Send notification for production deployments
@@ -211,7 +211,7 @@ pipeline {
             }
         }
         failure {
-            echo '❌ Pipeline failed!'
+            echo 'Pipeline failed!'
             script {
                 // You can add notification logic here (email, Slack, etc.)
                 echo 'Deployment failed. Please check the logs.'

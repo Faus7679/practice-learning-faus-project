@@ -16,3 +16,21 @@ gradle-app.setting
 .project
 # JDT-specific (Eclipse Java Development Tools)
 .classpath
+
+# Terraform
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform.d/
+terraform.rc
+.terraformrc
+crash.log
+crash.*.log
+
+# AWS and other sensitive files
+*.pem
+*.key
+deployment-status.md
